@@ -70,18 +70,23 @@ void argon2d(const v8::FunctionCallbackInfo<v8::Value>& args) {
        return;
    }
 
-   char * input = Buffer::Data(target);
-   uint32_t input_len = Buffer::Length(target);
-   char * output = (char*) malloc(sizeof(char) * 32);
-   uint32_t output_len = 32;
-   uint32_t t_cost = 2; // 2 iterations
-   uint32_t m_cost = 500; // use 500KiB
-   uint32_t parallelism = 8; // 1 thread, 8 lanes
-   uint32_t version = 0x10;
+    char * pwd = Buffer::Data(target);
+    uint32_t pwdlen = Buffer::Length(target);
+    char * salt = Buffer::Data(target);
+    uint32_t saltlen = Buffer::Length(target);
+    uint32_t hashlen = 32;
+    char * encoded = (char*) malloc(sizeof(char) * 32);
+    uint32_t encodedlen = Buffer::Length(target);
 
-   argon2_hash(t_cost, m_cost, parallelism, input, input_len, input, input_len, input, input_len, NULL, 0, Argon2_d, version);
+    uint32_t t_cost = 2; // 2 iteration
+    uint32_t m_cost = 500; // use 500KiB
+    uint32_t parallelism = 8; // 1 thread, 8 lanes
 
-   v8::Local<v8::Value> returnValue = Nan::CopyBuffer(output, 32).ToLocalChecked();
+    uint32_t version = 0x10;
+
+   argon2_hash(t_cost, m_cost, parallelism, pwd, pwdlen, salt, saltlen, NULL, hashlen, encoded, encodedlen, Argon2_d, version);
+
+   v8::Local<v8::Value> returnValue = Nan::CopyBuffer(encoded, 32).ToLocalChecked();
    args.GetReturnValue().Set(returnValue);
 }
 
