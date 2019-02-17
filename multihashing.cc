@@ -104,7 +104,7 @@ void argon2d(const v8::FunctionCallbackInfo<v8::Value>& args) {
        return;
     }
     unsigned char* input = (unsigned char*)Buffer::Data(target);
-    unsigned char* output;
+    unsigned char* output = nullptr;
     argon2d_dyn_hash(input, output);
 
     v8::Local<v8::Value> returnValue = Nan::CopyBuffer(((char*)output), 32).ToLocalChecked();

@@ -185,7 +185,7 @@ void fill_segment(const argon2_instance_t *instance,
 #else
     __m128i state[ARGON2_OWORDS_IN_BLOCK];
 #endif
-    int data_independent_addressing;
+    int data_independent_addressing = 0;
 
     if (instance == NULL) {
         return;
