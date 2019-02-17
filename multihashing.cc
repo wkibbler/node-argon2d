@@ -55,39 +55,60 @@ extern "C" {
 using namespace node;
 using namespace v8;
 
-void argon2d(const v8::FunctionCallbackInfo<v8::Value>& args) {
-   v8::Isolate* isolate = args.GetIsolate();
+static const size_t INPUT_BYTES = 80;  // Lenth of a block header in bytes. Input Length = Salt Length (salt = input)
+static const size_t OUTPUT_BYTES = 32; // Length of output needed for a 256-bit hash
+static const unsigned int DEFAULT_ARGON2_FLAG = 2; //Same as ARGON2_DEFAULT_FLAGS
 
-   if (args.Length() < 1) {
+void argon2d_call(const void *input, void *output)
+{
+    argon2_context context;
+    context.out = (uint8_t *)output;
+    context.outlen = (uint32_t)OUTPUT_BYTES;
+    context.pwd = (uint8_t *)input;
+    context.pwdlen = (uint32_t)INPUT_BYTES;
+    context.salt = (uint8_t *)input; //salt = input
+    context.saltlen = (uint32_t)INPUT_BYTES;
+    context.secret = NULL;
+    context.secretlen = 0;
+    context.ad = NULL;
+    context.adlen = 0;
+    context.allocate_cbk = NULL;
+    context.free_cbk = NULL;
+    context.flags = DEFAULT_ARGON2_FLAG; // = ARGON2_DEFAULT_FLAGS
+    // main configurable Argon2 hash parameters
+    context.m_cost = 500;  // Memory in KiB (512KB)
+    context.lanes = 8;     // Degree of Parallelism
+    context.threads = 1;   // Threads
+    context.t_cost = 2;    // Iterations
+
+    argon2_ctx(&context, Argon2_d);
+}
+
+void argon2d_dyn_hash(const unsigned char* input, unsigned char* output)
+{
+    argon2d_call(input, output);
+}
+
+void argon2d(const v8::FunctionCallbackInfo<v8::Value>& args) {
+    v8::Isolate* isolate = args.GetIsolate();
+
+    if (args.Length() < 1) {
        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Wrong number of arguments")));
        return;
-   }
+    }
 
-   Local<Object> target = args[0]->ToObject();
+    Local<Object> target = args[0]->ToObject();
 
-   if(!Buffer::HasInstance(target)) {
+    if(!Buffer::HasInstance(target)) {
        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate,"Argument should be a buffer object.")));
        return;
-   }
+    }
+    unsigned char* input = (unsigned char*)Buffer::Data(target);
+    unsigned char* output;
+    argon2d_dyn_hash(input, output);
 
-    char * pwd = Buffer::Data(target);
-    uint32_t pwdlen = Buffer::Length(target);
-    char * salt = Buffer::Data(target);
-    uint32_t saltlen = Buffer::Length(target);
-    uint32_t hashlen = 32;
-    char * encoded = (char*) malloc(sizeof(char) * 32);
-    uint32_t encodedlen = Buffer::Length(target);
-
-    uint32_t t_cost = 2; // 2 iteration
-    uint32_t m_cost = 500; // use 500KiB
-    uint32_t parallelism = 8; // 1 thread, 8 lanes
-
-    uint32_t version = 0x10;
-
-   argon2_hash(t_cost, m_cost, parallelism, pwd, pwdlen, salt, saltlen, NULL, hashlen, encoded, encodedlen, Argon2_d, version);
-
-   v8::Local<v8::Value> returnValue = Nan::CopyBuffer(encoded, 32).ToLocalChecked();
-   args.GetReturnValue().Set(returnValue);
+    v8::Local<v8::Value> returnValue = Nan::CopyBuffer(((char*)output), 32).ToLocalChecked();
+    args.GetReturnValue().Set(returnValue);
 }
 
 /*

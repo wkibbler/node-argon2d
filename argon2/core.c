@@ -25,7 +25,6 @@
 #endif
 #define VC_GE_2005(version) (version >= 1400)
 
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,10 +33,6 @@
 #include "thread.h"
 #include "blake2.h"
 #include "blake2-impl.h"
-
-#ifdef GENKAT
-#include "genkat.h"
-#endif
 
 #if defined(__clang__)
 #if __has_attribute(optnone)
@@ -167,10 +162,6 @@ void finalize(const argon2_context *context, argon2_instance_t *instance) {
             clear_internal_memory(blockhash_bytes, ARGON2_BLOCK_SIZE);
         }
 
-#ifdef GENKAT
-        print_tag(context->out, context->outlen);
-#endif
-
         free_memory(context, (uint8_t *)instance->memory,
                     instance->memory_blocks, sizeof(block));
     }
@@ -257,9 +248,6 @@ static int fill_memory_blocks_st(argon2_instance_t *instance) {
                 fill_segment(instance, position);
             }
         }
-#ifdef GENKAT
-        internal_kat(instance, r); /* Print all memory blocks */
-#endif
     }
     return ARGON2_OK;
 }
@@ -342,10 +330,6 @@ static int fill_memory_blocks_mt(argon2_instance_t *instance) {
                 }
             }
         }
-
-#ifdef GENKAT
-        internal_kat(instance, r); /* Print all memory blocks */
-#endif
     }
 
 fail:
@@ -501,8 +485,8 @@ int validate_inputs(const argon2_context *context) {
 
 void fill_first_blocks(uint8_t *blockhash, const argon2_instance_t *instance) {
     uint32_t l;
-    /* Make the first and second block in each lane as G(H0||i||0) or
-       G(H0||i||1) */
+    /* Make the first and second block in each lane as G(H0||0||i) or
+       G(H0||1||i) */
     uint8_t blockhash_bytes[ARGON2_BLOCK_SIZE];
     for (l = 0; l < instance->lanes; ++l) {
 
@@ -545,7 +529,7 @@ void initial_hash(uint8_t *blockhash, argon2_context *context,
     store32(&value, context->t_cost);
     blake2b_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
 
-    store32(&value, context->version);
+    store32(&value, ARGON2_VERSION_NUMBER);
     blake2b_update(&BlakeHash, (const uint8_t *)&value, sizeof(value));
 
     store32(&value, (uint32_t)type);
@@ -620,10 +604,6 @@ int initialize(argon2_instance_t *instance, argon2_context *context) {
     clear_internal_memory(blockhash + ARGON2_PREHASH_DIGEST_LENGTH,
                           ARGON2_PREHASH_SEED_LENGTH -
                               ARGON2_PREHASH_DIGEST_LENGTH);
-
-#ifdef GENKAT
-    initial_kat(blockhash, context, instance->type);
-#endif
 
     /* 3. Creating first blocks, we always have at least two blocks in a slice
      */
